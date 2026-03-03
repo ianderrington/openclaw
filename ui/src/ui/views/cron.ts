@@ -10,7 +10,13 @@ import type {
 import { formatRelativeTimestamp, formatMs } from "../format.ts";
 import { pathForTab } from "../navigation.ts";
 import { formatCronSchedule, formatNextRun } from "../presenter.ts";
-import type { ChannelUiMetaEntry, CronJob, CronRunLogEntry, CronStatus, OrchAutomationRule } from "../types.ts";
+import type {
+  ChannelUiMetaEntry,
+  CronJob,
+  CronRunLogEntry,
+  CronStatus,
+  OrchAutomationRule,
+} from "../types.ts";
 import type {
   CronDeliveryStatus,
   CronJobsEnabledFilter,
@@ -1551,7 +1557,10 @@ function renderJobRow(job: CronJob, props: CronProps) {
             class="btn"
             style="padding: 2px 8px; font-size: 11px;"
             ?disabled=${props.busy}
-            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onToggle(job, !job.enabled)); }}
+            @click=${(e: Event) => {
+              e.stopPropagation();
+              selectAnd(() => props.onToggle(job, !job.enabled));
+            }}
           >
             ${job.enabled ? "Disable" : "Enable"}
           </button>
@@ -1559,7 +1568,10 @@ function renderJobRow(job: CronJob, props: CronProps) {
             class="btn"
             style="padding: 2px 8px; font-size: 11px;"
             ?disabled=${props.busy}
-            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onRun(job, "force")); }}
+            @click=${(e: Event) => {
+              e.stopPropagation();
+              selectAnd(() => props.onRun(job, "force"));
+            }}
           >
             Run
           </button>
@@ -1567,7 +1579,10 @@ function renderJobRow(job: CronJob, props: CronProps) {
             class="btn"
             style="padding: 2px 8px; font-size: 11px;"
             ?disabled=${props.busy}
-            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onEdit(job)); }}
+            @click=${(e: Event) => {
+              e.stopPropagation();
+              selectAnd(() => props.onEdit(job));
+            }}
           >
             Edit
           </button>
@@ -1575,205 +1590,16 @@ function renderJobRow(job: CronJob, props: CronProps) {
             class="btn danger"
             style="padding: 2px 8px; font-size: 11px;"
             ?disabled=${props.busy}
-            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onRemove(job)); }}
+            @click=${(e: Event) => {
+              e.stopPropagation();
+              selectAnd(() => props.onRemove(job));
+            }}
           >
             ✕
           </button>
         </div>
       </td>
     </tr>
-  `;
-}
-
-function renderJob(job: CronJob, props: CronProps) {
-  const isSelected = props.runsJobId === job.id;
-  const itemClass = `list-item list-item-clickable cron-job${isSelected ? " list-item-selected" : ""}`;
-  const selectAnd = (action: () => void) => {
-    props.onLoadRuns(job.id);
-    action();
-  };
-  return html`
-    <div class=${itemClass} @click=${() => props.onLoadRuns(job.id)}>
-      <div class="list-main">
-        <div class="list-title">${job.name}</div>
-        <div class="list-sub">${formatCronSchedule(job)}</div>
-        ${renderJobPayload(job)}
-        ${job.agentId ? html`<div class="muted cron-job-agent">${t("cron.jobDetail.agent")}: ${job.agentId}</div>` : nothing}
-      </div>
-      <div class="list-meta">
-        ${renderJobState(job)}
-      </div>
-      <div class="cron-job-footer">
-        <div class="chip-row cron-job-chips">
-          <span class=${`chip ${job.enabled ? "chip-ok" : "chip-danger"}`}>
-            ${job.enabled ? t("cron.jobList.enabled") : t("cron.jobList.disabled")}
-          </span>
-          <span class="chip">${job.sessionTarget}</span>
-          <span class="chip">${job.wakeMode}</span>
-        </div>
-        <div class="row cron-job-actions">
-          <button
-            class="btn"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onEdit(job));
-            }}
-          >
-            ${t("cron.jobList.edit")}
-          </button>
-          <button
-            class="btn"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onClone(job));
-            }}
-          >
-            ${t("cron.jobList.clone")}
-          </button>
-          <button
-            class="btn"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onToggle(job, !job.enabled));
-            }}
-          >
-            ${job.enabled ? t("cron.jobList.disable") : t("cron.jobList.enable")}
-          </button>
-          <button
-            class="btn"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onRun(job, "force"));
-            }}
-          >
-            ${t("cron.jobList.run")}
-          </button>
-          <button
-            class="btn"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onRun(job, "due"));
-            }}
-          >
-            Run if due
-          </button>
-          <button
-            class="btn"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onLoadRuns(job.id));
-            }}
-          >
-            ${t("cron.jobList.history")}
-          </button>
-          <button
-            class="btn danger"
-            ?disabled=${props.busy}
-            @click=${(event: Event) => {
-              event.stopPropagation();
-              selectAnd(() => props.onRemove(job));
-            }}
-          >
-            ${t("cron.jobList.remove")}
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderJobPayload(job: CronJob) {
-  if (job.payload.kind === "systemEvent") {
-    return html`<div class="cron-job-detail">
-      <span class="cron-job-detail-label">${t("cron.jobDetail.system")}</span>
-      <span class="muted cron-job-detail-value">${job.payload.text}</span>
-    </div>`;
-  }
-
-  const delivery = job.delivery;
-  const deliveryTarget =
-    delivery?.mode === "webhook"
-      ? delivery.to
-        ? ` (${delivery.to})`
-        : ""
-      : delivery?.channel || delivery?.to
-        ? ` (${delivery.channel ?? "last"}${delivery.to ? ` -> ${delivery.to}` : ""})`
-        : "";
-
-  return html`
-    <div class="cron-job-detail">
-      <span class="cron-job-detail-label">${t("cron.jobDetail.prompt")}</span>
-      <span class="muted cron-job-detail-value">${job.payload.message}</span>
-    </div>
-    ${
-      delivery
-        ? html`<div class="cron-job-detail">
-            <span class="cron-job-detail-label">${t("cron.jobDetail.delivery")}</span>
-            <span class="muted cron-job-detail-value">${delivery.mode}${deliveryTarget}</span>
-          </div>`
-        : nothing
-    }
-  `;
-}
-
-function formatStateRelative(ms?: number) {
-  if (typeof ms !== "number" || !Number.isFinite(ms)) {
-    return t("common.na");
-  }
-  return formatRelativeTimestamp(ms);
-}
-
-function formatRunNextLabel(nextRunAtMs: number, nowMs = Date.now()) {
-  const rel = formatRelativeTimestamp(nextRunAtMs);
-  return nextRunAtMs > nowMs ? t("cron.runEntry.next", { rel }) : t("cron.runEntry.due", { rel });
-}
-
-function renderJobState(job: CronJob) {
-  const rawStatus = job.state?.lastStatus;
-  const statusClass =
-    rawStatus === "ok"
-      ? "cron-job-status-ok"
-      : rawStatus === "error"
-        ? "cron-job-status-error"
-        : rawStatus === "skipped"
-          ? "cron-job-status-skipped"
-          : "cron-job-status-na";
-  const statusLabel =
-    rawStatus === "ok"
-      ? t("cron.runs.runStatusOk")
-      : rawStatus === "error"
-        ? t("cron.runs.runStatusError")
-        : rawStatus === "skipped"
-          ? t("cron.runs.runStatusSkipped")
-          : t("common.na");
-  const nextRunAtMs = job.state?.nextRunAtMs;
-  const lastRunAtMs = job.state?.lastRunAtMs;
-
-  return html`
-    <div class="cron-job-state">
-      <div class="cron-job-state-row">
-        <span class="cron-job-state-key">${t("cron.jobState.status")}</span>
-        <span class=${`cron-job-status-pill ${statusClass}`}>${statusLabel}</span>
-      </div>
-      <div class="cron-job-state-row">
-        <span class="cron-job-state-key">${t("cron.jobState.next")}</span>
-        <span class="cron-job-state-value" title=${formatMs(nextRunAtMs)}>
-          ${formatStateRelative(nextRunAtMs)}
-        </span>
-      </div>
-      <div class="cron-job-state-row">
-        <span class="cron-job-state-key">${t("cron.jobState.last")}</span>
-        <span class="cron-job-state-value" title=${formatMs(lastRunAtMs)}>
-          ${formatStateRelative(lastRunAtMs)}
-        </span>
-      </div>
-    </div>
   `;
 }
 
@@ -1857,15 +1683,15 @@ function renderRun(entry: CronRunLogEntry, basePath: string) {
 
 function renderOrchAutomationSection(props: CronProps) {
   const rules = props.orchAutomation ?? [];
-  const scheduledRules = rules.filter(r => r.type === "cron");
-  const watcherRules = rules.filter(r => r.type === "watcher");
+  const scheduledRules = rules.filter((r) => r.type === "cron");
+  const watcherRules = rules.filter((r) => r.type === "watcher");
 
   if (props.orchAutomationLoading) {
     return html`
-      <section class="card" style="margin-top: 16px;">
+      <section class="card" style="margin-top: 16px">
         <div class="card-title">Orch Automation</div>
         <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
-        <div class="muted" style="margin-top: 12px;">Loading automation rules...</div>
+        <div class="muted" style="margin-top: 12px">Loading automation rules...</div>
       </section>
     `;
   }
@@ -1884,10 +1710,10 @@ function renderOrchAutomationSection(props: CronProps) {
 
   if (rules.length === 0) {
     return html`
-      <section class="card" style="margin-top: 16px;">
+      <section class="card" style="margin-top: 16px">
         <div class="card-title">Orch Automation</div>
         <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
-        <div class="muted" style="margin-top: 12px;">
+        <div class="muted" style="margin-top: 12px">
           No automation rules configured. Use <code>orch automation add</code> to create rules.
         </div>
       </section>
@@ -1899,7 +1725,9 @@ function renderOrchAutomationSection(props: CronProps) {
       <div class="card-title">Orch Automation</div>
       <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
 
-      ${scheduledRules.length > 0 ? html`
+      ${
+        scheduledRules.length > 0
+          ? html`
         <div style="margin-top: 16px;">
           <div style="font-weight: 600; margin-bottom: 8px;">📅 Scheduled (${scheduledRules.length})</div>
           <div style="overflow-x: auto;">
@@ -1916,14 +1744,18 @@ function renderOrchAutomationSection(props: CronProps) {
                 </tr>
               </thead>
               <tbody>
-                ${scheduledRules.map(rule => renderScheduledRuleRow(rule))}
+                ${scheduledRules.map((rule) => renderScheduledRuleRow(rule))}
               </tbody>
             </table>
           </div>
         </div>
-      ` : nothing}
+      `
+          : nothing
+      }
 
-      ${watcherRules.length > 0 ? html`
+      ${
+        watcherRules.length > 0
+          ? html`
         <div style="margin-top: 16px;">
           <div style="font-weight: 600; margin-bottom: 8px;">👁️ Watchers (${watcherRules.length})</div>
           <div style="overflow-x: auto;">
@@ -1940,12 +1772,14 @@ function renderOrchAutomationSection(props: CronProps) {
                 </tr>
               </thead>
               <tbody>
-                ${watcherRules.map(rule => renderWatcherRuleRow(rule))}
+                ${watcherRules.map((rule) => renderWatcherRuleRow(rule))}
               </tbody>
             </table>
           </div>
         </div>
-      ` : nothing}
+      `
+          : nothing
+      }
     </section>
   `;
 }
