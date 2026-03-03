@@ -7,6 +7,7 @@ const allowedTags = [
   "b",
   "blockquote",
   "br",
+  "span",
   "code",
   "del",
   "em",
@@ -128,6 +129,8 @@ export function toSanitizedMarkdownHtml(markdown: string): string {
 // pages) as formatted output is confusing UX (#13937).
 const htmlEscapeRenderer = new marked.Renderer();
 htmlEscapeRenderer.html = ({ text }: { text: string }) => escapeHtml(text);
+// Render line breaks with visible spacing (not just inline <br>)
+htmlEscapeRenderer.br = () => '<span class="line-break"></span>';
 
 function escapeHtml(value: string): string {
   return value

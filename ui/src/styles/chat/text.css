@@ -25,9 +25,9 @@
   overflow-wrap: break-word;
 }
 
-.chat-text br {
+.chat-text .line-break {
   display: block;
-  margin-bottom: 0.4em;
+  height: 0.5em;
 }
 
 .chat-text :where(p, ul, ol, pre, blockquote, table) {
