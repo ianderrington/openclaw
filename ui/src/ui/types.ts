@@ -625,3 +625,22 @@ export type LogEntry = {
   message?: string | null;
   meta?: Record<string, unknown> | null;
 };
+
+export type OrchAutomationRule = {
+  id: string;
+  name: string;
+  type: "watcher" | "cron";
+  enabled: boolean;
+  category?: string;
+  tags?: string[];
+  description?: string;
+  action: {
+    type: string;
+    command?: string;
+  };
+  cronSchedule?: string;
+  paths?: string[];
+  debounceMs?: number;
+  runCount: number;
+  lastRunAt?: number | null;
+};

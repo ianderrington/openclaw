@@ -73,6 +73,9 @@ function createProps(overrides: Partial<CronProps> = {}): CronProps {
     onJobsFiltersReset: () => undefined,
     onLoadMoreRuns: () => undefined,
     onRunsFiltersChange: () => undefined,
+    orchAutomation: [],
+    orchAutomationLoading: false,
+    orchAutomationError: null,
     ...overrides,
   };
 }

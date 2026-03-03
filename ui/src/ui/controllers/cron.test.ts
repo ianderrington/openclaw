@@ -50,6 +50,9 @@ function createState(overrides: Partial<CronState> = {}): CronState {
     cronRunsQuery: "",
     cronRunsSortDir: "desc",
     cronBusy: false,
+    orchAutomation: [],
+    orchAutomationLoading: false,
+    orchAutomationError: null,
     ...overrides,
   };
 }

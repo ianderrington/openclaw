@@ -15,6 +15,7 @@ import type {
   CronRunsStatusValue,
   CronSortDir,
   CronStatus,
+  OrchAutomationRule,
 } from "../types.ts";
 import { CRON_CHANNEL_LAST } from "../ui-types.ts";
 import type { CronFormState } from "../ui-types.ts";
@@ -73,6 +74,9 @@ export type CronState = {
   cronRunsQuery: string;
   cronRunsSortDir: CronSortDir;
   cronBusy: boolean;
+  orchAutomation: OrchAutomationRule[];
+  orchAutomationLoading: boolean;
+  orchAutomationError: string | null;
 };
 
 export type CronModelSuggestionsState = {
@@ -918,4 +922,31 @@ export function startCronClone(state: CronState, job: CronJob) {
 export function cancelCronEdit(state: CronState) {
   clearCronEditState(state);
   resetCronFormToDefaults(state);
+}
+
+export async function loadOrchAutomation(state: CronState) {
+  if (!state.client || !state.connected) {
+    return;
+  }
+  state.orchAutomationLoading = true;
+  state.orchAutomationError = null;
+  try {
+    // Call the orch.automation.list gateway method
+    const res = await state.client.request<{ rules?: OrchAutomationRule[] }>(
+      "orch.automation.list",
+      {},
+    );
+    state.orchAutomation = res?.rules ?? [];
+  } catch (err) {
+    // If the method doesn't exist, show a helpful message
+    const errStr = String(err);
+    if (errStr.includes("unknown method") || errStr.includes("not found")) {
+      state.orchAutomationError = "Orch automation API not available. Upgrade openclaw or use CLI.";
+    } else {
+      state.orchAutomationError = errStr;
+    }
+    state.orchAutomation = [];
+  } finally {
+    state.orchAutomationLoading = false;
+  }
 }

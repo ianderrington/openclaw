@@ -532,6 +532,9 @@ export function renderApp(state: AppViewState) {
                   }
                   await loadCronRuns(state, state.cronRunsJobId);
                 },
+                orchAutomation: state.orchAutomation,
+                orchAutomationLoading: state.orchAutomationLoading,
+                orchAutomationError: state.orchAutomationError,
               })
             : nothing
         }

@@ -10,7 +10,7 @@ import type {
 import { formatRelativeTimestamp, formatMs } from "../format.ts";
 import { pathForTab } from "../navigation.ts";
 import { formatCronSchedule, formatNextRun } from "../presenter.ts";
-import type { ChannelUiMetaEntry, CronJob, CronRunLogEntry, CronStatus } from "../types.ts";
+import type { ChannelUiMetaEntry, CronJob, CronRunLogEntry, CronStatus, OrchAutomationRule } from "../types.ts";
 import type {
   CronDeliveryStatus,
   CronJobsEnabledFilter,
@@ -62,6 +62,9 @@ export type CronProps = {
   timezoneSuggestions: string[];
   deliveryToSuggestions: string[];
   accountSuggestions: string[];
+  orchAutomation: OrchAutomationRule[];
+  orchAutomationLoading: boolean;
+  orchAutomationError: string | null;
   onFormChange: (patch: Partial<CronFormState>) => void;
   onRefresh: () => void;
   onAdd: () => void;
@@ -543,8 +546,23 @@ export function renderCron(props: CronProps) {
                   <div class="muted" style="margin-top: 12px">${t("cron.jobs.noMatching")}</div>
                 `
               : html`
-                  <div class="list" style="margin-top: 12px;">
-                    ${props.jobs.map((job) => renderJob(job, props))}
+                  <div class="cron-jobs-table-wrapper" style="margin-top: 12px; overflow-x: auto;">
+                    <table class="cron-jobs-table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                      <thead>
+                        <tr style="border-bottom: 1px solid var(--border-color, #e5e7eb); text-align: left;">
+                          <th style="padding: 8px 12px; font-weight: 600;">Name</th>
+                          <th style="padding: 8px 12px; font-weight: 600;">Schedule</th>
+                          <th style="padding: 8px 12px; font-weight: 600;">Agent</th>
+                          <th style="padding: 8px 12px; font-weight: 600;">Status</th>
+                          <th style="padding: 8px 12px; font-weight: 600;">Last Run</th>
+                          <th style="padding: 8px 12px; font-weight: 600;">Next Run</th>
+                          <th style="padding: 8px 12px; font-weight: 600;">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${props.jobs.map((job) => renderJobRow(job, props))}
+                      </tbody>
+                    </table>
                   </div>
                 `
           }
@@ -692,6 +710,8 @@ export function renderCron(props: CronProps) {
               : nothing
           }
         </section>
+
+        ${renderOrchAutomationSection(props)}
       </div>
 
       <section class="card cron-workspace-form">
@@ -1487,6 +1507,84 @@ function renderFieldError(message?: string, id?: string) {
   return html`<div id=${ifDefined(id)} class="cron-help cron-error">${t(message)}</div>`;
 }
 
+function renderJobRow(job: CronJob, props: CronProps) {
+  const isSelected = props.runsJobId === job.id;
+  const rowStyle = isSelected
+    ? "background: var(--selected-bg, #f0f9ff); cursor: pointer;"
+    : "cursor: pointer;";
+  const statusClass = job.enabled ? "chip-ok" : "chip-danger";
+  const statusLabel = job.enabled ? t("cron.jobList.enabled") : t("cron.jobList.disabled");
+  const lastRunAtMs = job.state?.lastRunAtMs;
+  const nextRunAtMs = job.state?.nextRunAtMs;
+  const selectAnd = (action: () => void) => {
+    props.onLoadRuns(job.id);
+    action();
+  };
+
+  return html`
+    <tr
+      style=${rowStyle}
+      @click=${() => props.onLoadRuns(job.id)}
+    >
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <div style="font-weight: 500;">${job.name}</div>
+        ${job.description ? html`<div class="muted" style="font-size: 11px;">${job.description}</div>` : nothing}
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${formatCronSchedule(job)}
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${job.agentId ?? "default"}
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <span class=${`chip ${statusClass}`} style="font-size: 11px;">${statusLabel}</span>
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${typeof lastRunAtMs === "number" ? formatRelativeTimestamp(lastRunAtMs) : t("common.na")}
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${typeof nextRunAtMs === "number" ? formatRelativeTimestamp(nextRunAtMs) : t("common.na")}
+      </td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <button
+            class="btn"
+            style="padding: 2px 8px; font-size: 11px;"
+            ?disabled=${props.busy}
+            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onToggle(job, !job.enabled)); }}
+          >
+            ${job.enabled ? "Disable" : "Enable"}
+          </button>
+          <button
+            class="btn"
+            style="padding: 2px 8px; font-size: 11px;"
+            ?disabled=${props.busy}
+            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onRun(job, "force")); }}
+          >
+            Run
+          </button>
+          <button
+            class="btn"
+            style="padding: 2px 8px; font-size: 11px;"
+            ?disabled=${props.busy}
+            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onEdit(job)); }}
+          >
+            Edit
+          </button>
+          <button
+            class="btn danger"
+            style="padding: 2px 8px; font-size: 11px;"
+            ?disabled=${props.busy}
+            @click=${(e: Event) => { e.stopPropagation(); selectAnd(() => props.onRemove(job)); }}
+          >
+            ✕
+          </button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
 function renderJob(job: CronJob, props: CronProps) {
   const isSelected = props.runsJobId === job.id;
   const itemClass = `list-item list-item-clickable cron-job${isSelected ? " list-item-selected" : ""}`;
@@ -1754,5 +1852,185 @@ function renderRun(entry: CronRunLogEntry, basePath: string) {
         ${entry.deliveryError ? html`<div class="muted">${entry.deliveryError}</div>` : nothing}
       </div>
     </div>
+  `;
+}
+
+function renderOrchAutomationSection(props: CronProps) {
+  const rules = props.orchAutomation ?? [];
+  const scheduledRules = rules.filter(r => r.type === "cron");
+  const watcherRules = rules.filter(r => r.type === "watcher");
+
+  if (props.orchAutomationLoading) {
+    return html`
+      <section class="card" style="margin-top: 16px;">
+        <div class="card-title">Orch Automation</div>
+        <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
+        <div class="muted" style="margin-top: 12px;">Loading automation rules...</div>
+      </section>
+    `;
+  }
+
+  if (props.orchAutomationError) {
+    return html`
+      <section class="card" style="margin-top: 16px;">
+        <div class="card-title">Orch Automation</div>
+        <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
+        <div class="muted" style="margin-top: 12px; color: var(--danger-color, #dc2626);">
+          Error loading automation: ${props.orchAutomationError}
+        </div>
+      </section>
+    `;
+  }
+
+  if (rules.length === 0) {
+    return html`
+      <section class="card" style="margin-top: 16px;">
+        <div class="card-title">Orch Automation</div>
+        <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
+        <div class="muted" style="margin-top: 12px;">
+          No automation rules configured. Use <code>orch automation add</code> to create rules.
+        </div>
+      </section>
+    `;
+  }
+
+  return html`
+    <section class="card" style="margin-top: 16px;">
+      <div class="card-title">Orch Automation</div>
+      <div class="card-sub">Gateway-managed file watchers and scheduled commands</div>
+
+      ${scheduledRules.length > 0 ? html`
+        <div style="margin-top: 16px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">📅 Scheduled (${scheduledRules.length})</div>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color, #e5e7eb); text-align: left;">
+                  <th style="padding: 6px 10px;">Name</th>
+                  <th style="padding: 6px 10px;">Schedule</th>
+                  <th style="padding: 6px 10px;">Category</th>
+                  <th style="padding: 6px 10px;">Status</th>
+                  <th style="padding: 6px 10px;">Last Run</th>
+                  <th style="padding: 6px 10px;">Runs</th>
+                  <th style="padding: 6px 10px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${scheduledRules.map(rule => renderScheduledRuleRow(rule))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : nothing}
+
+      ${watcherRules.length > 0 ? html`
+        <div style="margin-top: 16px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">👁️ Watchers (${watcherRules.length})</div>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color, #e5e7eb); text-align: left;">
+                  <th style="padding: 6px 10px;">Name</th>
+                  <th style="padding: 6px 10px;">Paths</th>
+                  <th style="padding: 6px 10px;">Debounce</th>
+                  <th style="padding: 6px 10px;">Category</th>
+                  <th style="padding: 6px 10px;">Status</th>
+                  <th style="padding: 6px 10px;">Runs</th>
+                  <th style="padding: 6px 10px;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${watcherRules.map(rule => renderWatcherRuleRow(rule))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : nothing}
+    </section>
+  `;
+}
+
+function renderScheduledRuleRow(rule: OrchAutomationRule) {
+  const statusClass = rule.enabled ? "chip-ok" : "chip-danger";
+  const statusLabel = rule.enabled ? "Enabled" : "Disabled";
+  const lastRun = rule.lastRunAt ? formatRelativeTimestamp(rule.lastRunAt) : "Never";
+  const actionPreview = rule.action.command
+    ? rule.action.command.length > 40
+      ? rule.action.command.slice(0, 40) + "..."
+      : rule.action.command
+    : rule.action.type;
+
+  return html`
+    <tr>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <div style="font-weight: 500;">${rule.name}</div>
+        ${rule.description ? html`<div class="muted" style="font-size: 11px;">${rule.description}</div>` : nothing}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${rule.cronSchedule ?? "—"}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${rule.category ?? "—"}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <span class=${`chip ${statusClass}`} style="font-size: 11px;">${statusLabel}</span>
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${lastRun}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${rule.runCount}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <code style="font-size: 11px; background: var(--code-bg, #f3f4f6); padding: 2px 4px; border-radius: 3px;">
+          ${actionPreview}
+        </code>
+      </td>
+    </tr>
+  `;
+}
+
+function renderWatcherRuleRow(rule: OrchAutomationRule) {
+  const statusClass = rule.enabled ? "chip-ok" : "chip-danger";
+  const statusLabel = rule.enabled ? "Enabled" : "Disabled";
+  const pathsPreview = rule.paths?.length
+    ? rule.paths.length > 2
+      ? `${rule.paths.slice(0, 2).join(", ")}... (+${rule.paths.length - 2})`
+      : rule.paths.join(", ")
+    : "—";
+  const debounce = rule.debounceMs ? `${rule.debounceMs}ms` : "—";
+  const actionPreview = rule.action.command
+    ? rule.action.command.length > 30
+      ? rule.action.command.slice(0, 30) + "..."
+      : rule.action.command
+    : rule.action.type;
+
+  return html`
+    <tr>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <div style="font-weight: 500;">${rule.name}</div>
+        ${rule.description ? html`<div class="muted" style="font-size: 11px;">${rule.description}</div>` : nothing}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <code style="font-size: 11px;">${pathsPreview}</code>
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${debounce}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${rule.category ?? "—"}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <span class=${`chip ${statusClass}`} style="font-size: 11px;">${statusLabel}</span>
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        ${rule.runCount}
+      </td>
+      <td style="padding: 6px 10px; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+        <code style="font-size: 11px; background: var(--code-bg, #f3f4f6); padding: 2px 4px; border-radius: 3px;">
+          ${actionPreview}
+        </code>
+      </td>
+    </tr>
   `;
 }

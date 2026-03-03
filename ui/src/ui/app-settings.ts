@@ -17,6 +17,7 @@ import {
   loadCronModelSuggestions,
   loadCronRuns,
   loadCronStatus,
+  loadOrchAutomation,
 } from "./controllers/cron.ts";
 import { loadDebug } from "./controllers/debug.ts";
 import { loadDevices } from "./controllers/devices.ts";
@@ -429,6 +430,7 @@ export async function loadCron(host: SettingsHost) {
     loadCronStatus(cronHost),
     loadCronJobs(cronHost),
     loadCronModelSuggestions(cronHost),
+    loadOrchAutomation(cronHost),
   ]);
   if (cronHost.cronRunsScope === "all") {
     await loadCronRuns(cronHost, null);

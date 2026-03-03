@@ -223,6 +223,9 @@ export type AppViewState = {
   | "cronRunsQuery"
   | "cronRunsSortDir"
   | "cronBusy"
+  | "orchAutomation"
+  | "orchAutomationLoading"
+  | "orchAutomationError"
 > &
   Pick<CronModelSuggestionsState, "cronModelSuggestions"> & {
     skillsLoading: boolean;

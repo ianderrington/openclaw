@@ -338,6 +338,10 @@ export class OpenClawApp extends LitElement {
   @state() cronModelSuggestions: string[] = [];
   @state() cronBusy = false;
 
+  @state() orchAutomation: import("./types.js").OrchAutomationRule[] = [];
+  @state() orchAutomationLoading = false;
+  @state() orchAutomationError: string | null = null;
+
   @state() updateAvailable: import("./types.js").UpdateAvailable | null = null;
 
   @state() skillsLoading = false;
